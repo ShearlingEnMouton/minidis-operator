@@ -17,12 +17,47 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // MinidisSpec defines the desired state of a minidis instance.
 type MinidisSpec struct {
+	// version is the minidis image tag to run.
+	// +kubebuilder:default="1.0.0"
+	// +optional
+	Version string `json:"version,omitempty"`
+	// storage configures the persistent volume that holds the AOF.
+	// It cannot be changed after creation.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="storage cannot be changed after creation"
+	// +kubebuilder:default={}
+	// +optional
+	Storage MinidisStorage `json:"storage,omitzero"`
+	// resources sets the CPU and memory requests and limits of the minidis container.
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	// auth selects the Secret key that holds the password clients must send with AUTH.
+	// Authentication is disabled when it is not set.
+	// +optional
+	Auth *corev1.SecretKeySelector `json:"auth,omitempty"`
+	// fsync is the AOF fsync policy: always, everysec or no.
+	// +kubebuilder:validation:Enum=always;everysec;no
+	// +kubebuilder:default=everysec
+	// +optional
+	Fsync string `json:"fsync,omitempty"`
+}
+
+// MinidisStorage configures the persistent volume of a minidis instance.
+type MinidisStorage struct {
+	// size is the requested size of the volume.
+	// +kubebuilder:default="2Gi"
+	// +optional
+	Size resource.Quantity `json:"size,omitzero"`
+	// storageClassName is the StorageClass of the volume. The cluster default is used when it is not set.
+	// +optional
+	StorageClassName *string `json:"storageClassName,omitempty"`
 }
 
 // MinidisStatus defines the observed state of a minidis instance.
@@ -32,6 +67,12 @@ type MinidisStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// observedGeneration is the metadata.generation of the Minidis that was last reconciled.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// readyReplicas is the number of minidis Pods that are ready, 0 or 1.
+	// +optional
+	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
 }
 
 // +kubebuilder:object:root=true
