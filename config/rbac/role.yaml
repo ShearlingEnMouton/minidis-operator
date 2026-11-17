@@ -1,11 +1,32 @@
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  labels:
-    app.kubernetes.io/name: minidis-operator
-    app.kubernetes.io/managed-by: kustomize
   name: manager-role
 rules:
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - minidis.shearlingenmouton.github.io
+  resources:
+  - minidis
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - minidis.shearlingenmouton.github.io
+  resources:
+  - minidis/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - minidis.shearlingenmouton.github.io
+  resources:
+  - minidis/status
+  verbs:
+  - get
+  - patch
+  - update
