@@ -4,6 +4,18 @@ A Kubernetes operator for [minidis](https://github.com/ShearlingEnMouton/minidis
 
 The operator is built with [Kubebuilder](https://book.kubebuilder.io/) and [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime). It is in early development: the API group is `minidis.shearlingenmouton.github.io/v1alpha1` and may still change.
 
+## Installation
+
+Each release publishes the operator image to `ghcr.io/shearlingenmouton/minidis-operator` and attaches an `install.yaml` manifest to the GitHub release. The manifest contains the CRD, the RBAC rules and the controller Deployment:
+
+```sh
+kubectl apply -f https://github.com/ShearlingEnMouton/minidis-operator/releases/download/v0.1.0/install.yaml
+```
+
+The controller runs in the `minidis-operator-system` namespace. Once it is running, create a `Minidis` resource as shown in [Usage](#usage).
+
+Releases are created by pushing a `v*` tag: the release workflow builds and pushes the image, then builds `install.yaml` with `make build-installer` and attaches it to the release.
+
 ## Requirements
 
 - Go 1.26 or later

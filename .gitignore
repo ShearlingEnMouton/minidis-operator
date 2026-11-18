@@ -31,3 +31,6 @@ go.work
 
 # Local editor environment
 .devcontainer/
+
+# Install manifest built by make build-installer
+dist/
