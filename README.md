@@ -27,6 +27,50 @@ make docker-build docker-push IMG=<registry>/minidis-operator:<tag>
 make deploy IMG=<registry>/minidis-operator:<tag>
 ```
 
+## Usage
+
+A `Minidis` resource describes one minidis server:
+
+```yaml
+apiVersion: minidis.shearlingenmouton.github.io/v1alpha1
+kind: Minidis
+metadata:
+  name: cache
+spec:
+  version: "1.0.0"
+  storage:
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  auth:
+    name: cache-auth
+    key: password
+  fsync: everysec
+```
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `version` | `1.0.0` | Tag of the `ghcr.io/shearlingenmouton/minidis` image to run. |
+| `storage.size` | `2Gi` | Size of the persistent volume that holds the AOF. |
+| `storage.storageClassName` | cluster default | StorageClass of the persistent volume. |
+| `resources` | none | CPU and memory requests and limits of the minidis container. |
+| `auth` | none | Secret key that holds the password clients must send with `AUTH`. Authentication is disabled when it is not set. |
+| `fsync` | `everysec` | AOF fsync policy: `always`, `everysec` or `no`. |
+
+`storage` cannot be changed after the resource is created, because the volume claim template of a StatefulSet is immutable. The other fields can be updated; the operator applies the change to the StatefulSet, which rolls the pod.
+
+For a `Minidis` named `<name>`, the operator creates the following objects in the same namespace:
+
+- a StatefulSet `<name>` with one replica, which mounts a persistent volume claim `minidis-data` at `/data`
+- a Service `<name>` that exposes port 3131 inside the cluster
+- a headless Service `<name>-headless`, which governs the StatefulSet and gives the pod a stable DNS name
+
+These objects are owned by the `Minidis` resource and are deleted with it. The persistent volume claim is not owned by it, so the data is kept after the resource is deleted.
+
+The status reports the number of ready replicas in `readyReplicas` and a `Ready` condition, which is `True` once the minidis pod is ready. `observedGeneration` is the generation of the spec that the status reflects.
+
 ## License
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
