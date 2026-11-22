@@ -79,6 +79,11 @@ type MinidisStatus struct {
 // +kubebuilder:subresource:status
 
 // Minidis is a single minidis server with its storage and Services.
+// +kubebuilder:resource:shortName=md
+// +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.spec.version`
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Storage",type=string,JSONPath=`.spec.storage.size`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 type Minidis struct {
 	metav1.TypeMeta `json:",inline"`
 
