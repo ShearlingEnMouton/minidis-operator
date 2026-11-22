@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/events"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	minidisv1alpha1 "github.com/ShearlingEnMouton/minidis-operator/api/v1alpha1"
@@ -46,11 +48,14 @@ func envValue(c corev1.Container, name string) (corev1.EnvVar, bool) {
 var _ = Describe("Minidis Controller", func() {
 	ctx := context.Background()
 	var reconciler *MinidisReconciler
+	var recorder *events.FakeRecorder
 
 	BeforeEach(func() {
+		recorder = events.NewFakeRecorder(10)
 		reconciler = &MinidisReconciler{
-			Client: k8sClient,
-			Scheme: k8sClient.Scheme(),
+			Client:   k8sClient,
+			Scheme:   k8sClient.Scheme(),
+			Recorder: recorder,
 		}
 	})
 
@@ -216,6 +221,43 @@ var _ = Describe("Minidis Controller", func() {
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, key, sts)).To(Succeed())
 		Expect(sts.Spec.Template.Spec.Containers[0].Image).To(Equal("ghcr.io/shearlingenmouton/minidis:1.1.0"))
+	})
+
+	It("reports a failed reconcile in the Ready condition and as an event", func() {
+		key := create("conflict", minidisv1alpha1.MinidisSpec{})
+
+		owner := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "conflict-owner", Namespace: testNamespace},
+		}
+		Expect(k8sClient.Create(ctx, owner)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(k8sClient.Delete(ctx, owner)).To(Succeed())
+		})
+
+		svc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: testNamespace},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{{Port: 3131}},
+			},
+		}
+		Expect(controllerutil.SetControllerReference(owner, svc, k8sClient.Scheme())).To(Succeed())
+		Expect(k8sClient.Create(ctx, svc)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(k8sClient.Delete(ctx, svc)).To(Succeed())
+		})
+
+		_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: key})
+		Expect(err).To(HaveOccurred())
+
+		m := &minidisv1alpha1.Minidis{}
+		Expect(k8sClient.Get(ctx, key, m)).To(Succeed())
+		cond := meta.FindStatusCondition(m.Status.Conditions, "Ready")
+		Expect(cond).NotTo(BeNil())
+		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+		Expect(cond.Reason).To(Equal("ReconcileFailed"))
+		Expect(cond.Message).To(ContainSubstring("failed to reconcile Service"))
+
+		Expect(recorder.Events).To(Receive(HavePrefix("Warning ReconcileFailed failed to reconcile Service")))
 	})
 
 	It("ignores a Minidis that no longer exists", func() {

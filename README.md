@@ -83,6 +83,8 @@ These objects are owned by the `Minidis` resource and are deleted with it. The p
 
 The status reports the number of ready replicas in `readyReplicas` and a `Ready` condition, which is `True` once the minidis pod is ready. `observedGeneration` is the generation of the spec that the status reflects.
 
+When the operator fails to create or update one of these objects, it sets the `Ready` condition to `False` with the reason `ReconcileFailed` and the error in its message, records a `Warning` event on the resource, and retries. The event is shown by `kubectl describe minidis <name>`.
+
 `kubectl get minidis`, or the short name `kubectl get md`, lists the version, the readiness and the storage size of each resource:
 
 ```text
