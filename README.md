@@ -83,6 +83,13 @@ These objects are owned by the `Minidis` resource and are deleted with it. The p
 
 The status reports the number of ready replicas in `readyReplicas` and a `Ready` condition, which is `True` once the minidis pod is ready. `observedGeneration` is the generation of the spec that the status reflects.
 
+`kubectl get minidis`, or the short name `kubectl get md`, lists the version, the readiness and the storage size of each resource:
+
+```text
+NAME             VERSION   READY   STORAGE   AGE
+minidis-sample   1.0.0     True    2Gi       5m
+```
+
 ## License
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
