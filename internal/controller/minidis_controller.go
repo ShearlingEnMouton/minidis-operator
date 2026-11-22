@@ -56,18 +56,24 @@ func minidisLabel(m minidisv1alpha1.Minidis) map[string]string {
 	}
 }
 
+// readyCondition builds the Ready condition of m with the given status, reason and message.
+func readyCondition(m *minidisv1alpha1.Minidis, status v1.ConditionStatus, reason, message string) v1.Condition {
+	return v1.Condition{
+		Type:               "Ready",
+		Status:             status,
+		ObservedGeneration: m.Generation,
+		Reason:             reason,
+		Message:            message,
+	}
+}
+
 // reportFailure records a failed reconcile of the named object as a Warning event and
 // as a False Ready condition, and returns err so that the request is retried.
 func (r *MinidisReconciler) reportFailure(ctx context.Context, m *minidisv1alpha1.Minidis, object string, err error) error {
 	r.Recorder.Eventf(m, nil, corev1.EventTypeWarning, "ReconcileFailed", "CreateOrUpdate", "failed to reconcile %s: %v", object, err)
 
-	meta.SetStatusCondition(&m.Status.Conditions, v1.Condition{
-		Type:               "Ready",
-		Status:             v1.ConditionFalse,
-		ObservedGeneration: m.Generation,
-		Reason:             "ReconcileFailed",
-		Message:            fmt.Sprintf("failed to reconcile %s: %v", object, err),
-	})
+	meta.SetStatusCondition(&m.Status.Conditions,
+		readyCondition(m, v1.ConditionFalse, "ReconcileFailed", fmt.Sprintf("failed to reconcile %s: %v", object, err)))
 	if updateErr := r.Status().Update(ctx, m); updateErr != nil {
 		return errors.Join(err, updateErr)
 	}
@@ -256,17 +262,9 @@ func (r *MinidisReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, r.reportFailure(ctx, &m, "StatefulSet", err)
 	}
 
-	condition := v1.Condition{
-		Type:               "Ready",
-		Status:             v1.ConditionFalse,
-		ObservedGeneration: m.Generation,
-		Reason:             "NotReady",
-		Message:            "minidis pod is not ready",
-	}
+	condition := readyCondition(&m, v1.ConditionFalse, "NotReady", "minidis pod is not ready")
 	if sts.Status.ReadyReplicas == 1 {
-		condition.Status = v1.ConditionTrue
-		condition.Reason = "Ready"
-		condition.Message = "minidis pod is ready"
+		condition = readyCondition(&m, v1.ConditionTrue, "Ready", "minidis pod is ready")
 	}
 	m.Status.ReadyReplicas = sts.Status.ReadyReplicas
 	m.Status.ObservedGeneration = m.Generation
